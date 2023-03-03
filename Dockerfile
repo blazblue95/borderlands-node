@@ -1,7 +1,7 @@
 FROM node:alpine
 
 # Create app directory
-WORKDIR /usr/src/app
+WORKDIR /usr/src/app/server
 
 # Install app dependencies
 # A wildcard is used to ensure both package.json AND package-lock.json are copied
@@ -16,7 +16,5 @@ RUN yarn install
 COPY . .
 
 EXPOSE 8000
-
-WORKDIR /usr/src/app/server
 
 CMD [ "yarn", "start" ]
