@@ -1,76 +1,76 @@
-const { WebSocket, WebSocketServer } = require('ws');
-const http = require('http');
-const uuidv4 = require('uuid').v4;
+const express = require("express");
+const socket = require("socket.io");
 
-// Spinning the http server and the WebSocket server.
-const server = http.createServer();
-const wsServer = new WebSocketServer({ server });
-const port = 8000;
-server.listen(port, () => {
-  console.log(`WebSocket server is running on port ${port}`);
+// App setup
+const PORT = 5000;
+const app = express();
+const server = app.listen(PORT, function () {
+  console.log(`Listening on port ${PORT}`);
+  console.log(`http://localhost:${PORT}`);
 });
 
-// I'm maintaining all active connections in this object
-const clients = {};
-// I'm maintaining all active users in this object
-const users = {};
-// The current editor content is maintained here.
-let editorContent = null;
-// User activity history.
-let userActivity = [];
+// Static files
+app.use(express.static("public"));
 
-// Event types
-const typesDef = {
-  USER_EVENT: 'userevent',
-  CONTENT_CHANGE: 'contentchange'
-}
+// Socket setup
+const io = require('socket.io')(server, {
+  cors: {
+      origin: "http://localhost:5000",
+      methods: ["GET", "POST"],
+      transports: ['websocket', 'polling'],
+      credentials: true
+  },
+  allowEIO3: true
+});
 
-function broadcastMessage(json) {
-  // We are sending the current data to all connected clients
-  const data = JSON.stringify(json);
-  for(let userId in clients) {
-    let client = clients[userId];
-    if(client.readyState === WebSocket.OPEN) {
-      client.send(data);
+const activeUsers = new Set();
+const rooms = io.of("/").adapter.rooms;
+
+io.on("connection", function (socket) {
+  console.log("Made socket connection");
+
+  // create and join room
+  socket.on("create", function (data) {
+    console.log('data', data);
+    socket.join(data?.roomID)
+    activeUsers.add(data?.userName);
+    io.emit("new user in room", [...activeUsers]);
+    console.log('room created, rooms: ', rooms)
+  });
+
+  // connect to the room
+  socket.on("join", function (data) {
+    console.log('socket', socket.id)
+    socket.userId = data.userID;
+    console.log('data', data)
+
+    // if roomID does not exist, emit wrong room back to client
+    if (!rooms.get(data?.roomID)) {
+      console.log('wrong roomID!')
+      console.log('rooms', rooms)
+      console.log('activUsers', activeUsers)
+      io.to(socket.id).emit('wrong roomID!')
+    } else {
+      socket.join(data?.roomID)
+      activeUsers.add(data);
+      io.emit("new user", [...activeUsers]);
     }
-  };
-}
+  });
 
-function handleMessage(message, userId) {
-  const dataFromClient = JSON.parse(message.toString());
-  const json = { type: dataFromClient.type };
-  if (dataFromClient.type === typesDef.USER_EVENT) {
-    users[userId] = dataFromClient;
-    userActivity.push(`${dataFromClient.username} joined to edit the document`);
-    json.data = { users, userActivity };
-  } else if (dataFromClient.type === typesDef.CONTENT_CHANGE) {
-    editorContent = dataFromClient.content;
-    json.data = { editorContent, userActivity };
-  }
-  broadcastMessage(json);
-}
+  // disconnect
+  socket.on("disconnect", () => {
+    activeUsers.delete(socket.userId);
+    io.emit("user disconnected", socket.userId);
+    console.log('user disconnected')
+  });
 
-function handleDisconnect(userId) {
-    console.log(`${userId} disconnected.`);
-    const json = { type: typesDef.USER_EVENT };
-    const username = users[userId]?.username || userId;
-    userActivity.push(`${username} left the document`);
-    json.data = { users, userActivity };
-    delete clients[userId];
-    delete users[userId];
-    broadcastMessage(json);
-}
-
-// A new client connection request received
-wsServer.on('connection', function(connection) {
-  // Generate a unique code for every user
-  const userId = uuidv4();
-  console.log('Received a new connection');
-
-  // Store the new connection and handle messages
-  clients[userId] = connection;
-  console.log(`${userId} connected.`);
-  connection.on('message', (message) => handleMessage(message, userId));
-  // User disconnected
-  connection.on('close', () => handleDisconnect(userId));
+  // message
+  socket.on("chat message", function (data) {
+    io.emit("chat message", data);
+  });
+  
+  // typing
+  socket.on("typing", function (data) {
+    socket.broadcast.emit("typing", data);
+  });
 });
