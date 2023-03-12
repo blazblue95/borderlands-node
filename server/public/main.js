@@ -1,37 +1,31 @@
+// eslint-disable-next-line no-undef
 const socket = io();
 
-const inboxPeople = document.querySelector(".inbox__people");
-const inputField = document.querySelector(".message_form__input");
-const messageForm = document.querySelector(".message_form");
-const messageBox = document.querySelector(".messages__history");
-const fallback = document.querySelector(".fallback");
+const inboxPeople = document.querySelector('.inbox__people');
+const inputField = document.querySelector('.message_form__input');
+const messageForm = document.querySelector('.message_form');
+const messageBox = document.querySelector('.messages__history');
+const fallback = document.querySelector('.fallback');
 
-// const roomInput = document.querySelector(".room_form__input");
-// const roomForm = document.querySelector(".room_form");
+const roomInput = document.querySelector('.room_form__input');
+const createRoomButton = document.querySelector('.createroom_form__button');
+const joinRoomButton = document.querySelector('.joinroom_form__button');
+const usernameInput = document.querySelector('.username_form__input');
 
-const roomInput = document.querySelector(".room_form__input");
-const roomForm = document.querySelector(".room_form");
-const createRoomButton = document.querySelector(".createroom_form__button");
-const joinRoomButton = document.querySelector(".joinroom_form__button")
+const userName = '';
 
-const usernameInput = document.querySelector(".username_form__input");
-const usernameForm = document.querySelector(".username_form");
-
-let userName = "";
-
-const createRoom = (userName, roomID) => {
-  const obj = { userName: userName, roomID }
-  socket.emit('create', obj)
-}
-
-const joinRoom = (user, roomID) => {
-  userName = user || `User${Math.floor(Math.random() * 1000000)}`;
-  const obj = { userID: userName, roomID: roomID ?? '1234' }
-  socket.emit("join", obj);
+const createRoom = (userId, roomID) => {
+  const obj = { userId, roomID };
+  socket.emit('create', obj);
 };
 
-const addToUsersBox = (userName) => {
-  if (!!document.querySelector(`.${userName}-userlist`)) {
+const joinRoom = (userId, roomID) => {
+  const obj = { userId, roomID: roomID ?? '1234' };
+  socket.emit('join', obj);
+};
+
+const addToUsersBox = (userId) => {
+  if (document.querySelector(`.${userId}-userlist`)) {
     return;
   }
 
@@ -45,7 +39,7 @@ const addToUsersBox = (userName) => {
 
 const addNewMessage = ({ user, message }) => {
   const time = new Date();
-  const formattedTime = time.toLocaleString("en-US", { hour: "numeric", minute: "numeric" });
+  const formattedTime = time.toLocaleString('en-US', { hour: 'numeric', minute: 'numeric' });
 
   const receivedMsg = `
   <div class="incoming__message">
@@ -74,98 +68,86 @@ const addNewMessage = ({ user, message }) => {
 // new user is created so we generate nickname and emit event (default)
 // newUserConnected();
 
-messageForm.addEventListener("submit", (e) => {
+messageForm.addEventListener('submit', (e) => {
   e.preventDefault();
   if (!inputField.value) {
     return;
   }
 
-  socket.emit("chat message", {
+  socket.emit('chat message', {
     message: inputField.value,
     nick: userName,
   });
 
-  inputField.value = "";
+  inputField.value = '';
 });
 
-inputField.addEventListener("keyup", () => {
-  socket.emit("typing", {
+inputField.addEventListener('keyup', () => {
+  socket.emit('typing', {
     isTyping: inputField.value.length > 0,
     nick: userName,
   });
 });
 
-socket.on("join", function (data) {
+socket.on('join', (data) => {
   data.map((user) => addToUsersBox(user));
 });
 
-socket.on("user disconnected", function (userName) {
-  document.querySelector(`.${userName}-userlist`).remove();
+socket.on('user disconnected', (existingUser) => {
+  document.querySelector(`.${existingUser}-userlist`).remove();
 });
 
-socket.on("chat message", function (data) {
+socket.on('chat message', (data) => {
   addNewMessage({ user: data.nick, message: data.message });
 });
 
-socket.on("wrong roomID!", function (data) {
-    window.alert('No such room exists')
+socket.on('wrong roomID!', () => {
+  window.alert('No such room exists');
 });
 
-socket.on("typing", function (data) {
+socket.on('typing', (data) => {
   const { isTyping, nick } = data;
 
   if (!isTyping) {
-    fallback.innerHTML = "";
+    fallback.innerHTML = '';
     return;
   }
 
   fallback.innerHTML = `<p>${nick} is typing...</p>`;
 });
 
-// join room
-// roomForm.addEventListener("submit", (e) => {
-//     e.preventDefault();
-//     if (!roomInput.value) {
-//       return;
-//     }
-//     console.log('roomInput', roomInput.value)
-//     joinRoom('default user', roomInput.value)
-// });
-
 // create room
-createRoomButton.addEventListener("click", (e) => {
+createRoomButton.addEventListener('click', (e) => {
+  e.preventDefault();
+  if (!usernameInput.value) {
+    window.alert('please enter username!');
+    return;
+  }
+  if (!roomInput.value) {
+    window.alert('please enter room id!');
+    return;
+  }
 
-    e.preventDefault();
-    if (!usernameInput.value) {
-        window.alert('please enter username!')
-        return;
-    }
-    if (!createRoomInput.value) {
-        window.alert('please enter room id!')
-        return;
-    }
+  console.log('hit event create');
 
-    console.log('hit event')
-
-    // if (e?.)
-    createRoom(usernameInput.value, createRoomInput.value)
+  // if (e?.)
+  createRoom(usernameInput.value, roomInput.value);
 });
 
 // join room
-joinRoomButton.addEventListener("click", (e) => {
+joinRoomButton.addEventListener('click', (e) => {
+  e.preventDefault();
+  if (!usernameInput.value) {
+    window.alert('please enter username!');
+    return;
+  }
+  if (!roomInput.value) {
+    window.alert('please enter room id!');
+    return;
+  }
 
-    e.preventDefault();
-    if (!usernameInput.value) {
-        window.alert('please enter username!')
-        return;
-    }
-    if (!roomInput.value) {
-        window.alert('please enter room id!')
-        return;
-    }
+  console.log('hit event');
 
-    console.log('hit event')
-
-    // if (e?.)
-    joinRoom(usernameInput.value, roomInput.value)
+  // if (e?.)
+  joinRoom(usernameInput.value, roomInput.value);
 });
