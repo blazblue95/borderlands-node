@@ -15,6 +15,6 @@ RUN yarn install
 # Bundle app source
 COPY ./server .
 
-EXPOSE 8000
+EXPOSE 5000
 
 CMD [ "yarn", "start" ]
